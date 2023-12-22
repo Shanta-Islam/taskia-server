@@ -41,6 +41,19 @@ async function run() {
             const result = await tasksCollection.insertOne(taskItem);
             res.send(result);
         });
+        app.delete('/delete-task/:id', async (req, res) => {
+            const id = req.params.id;
+            try {
+              const assignment = await tasksCollection.findOneAndDelete({ _id: new ObjectId(id), email: req.query?.email });
+              if (assignment) {
+                res.send(assignment);
+              } else {
+                res.status(404).json({ message: 'Task not found for the requesting user' });
+              }
+            } catch (err) {
+              res.status(500).json({ message: err.message });
+            }
+          })
         // await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
     } finally {

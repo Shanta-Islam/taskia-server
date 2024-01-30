@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const app = express();
@@ -54,17 +55,40 @@ async function run() {
     }
 
     const tasksCollection = client.db("taskiaDb").collection("tasks");
+    const commentsCollection = client.db('taskiaDb').collection('comments');
     app.get('/task/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
+      const status = req.query.status;
+      if (status) {
+        query.status = status;
+      }
       const user = await tasksCollection.find(query).toArray();
+      res.send(user);
+    })
+    app.get('/singleTask/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const user = await tasksCollection.findOne(query);
       res.send(user);
     })
     app.get('/tasks', async (req, res) => {
-      const query = {};
+      let query = {};
       const user = await tasksCollection.find(query).toArray();
       res.send(user);
     })
+    app.get('/activeTasks/:status/:email', async (req, res) => {
+      const status = req.params.status;
+      const email = req.params.email;
+      const query = { status: status, email: email }
+      const user = await tasksCollection.find(query).toArray();
+      res.send(user);
+      console.log(user)
+
+
+
+    })
+
     app.post('/task', async (req, res) => {
       const taskItem = req.body;
       const result = await tasksCollection.insertOne(taskItem);
@@ -86,6 +110,17 @@ async function run() {
       console.log(result);
       res.send(result);
     })
+    app.patch('/completed-task/:id', async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          status: 'completed'
+        }
+      }
+      const result = await tasksCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    })
 
     app.delete('/delete-task/:id', async (req, res) => {
       const id = req.params.id;
@@ -99,6 +134,63 @@ async function run() {
       } catch (err) {
         res.status(500).json({ message: err.message });
       }
+    })
+    app.get('/tasks-comments', async (req, res) => {
+      let query = {};
+      if (req.query.taskId) {
+        query = {
+          taskId: req.query.taskId
+        }
+      }
+      const cursor = commentsCollection.find(query).sort({ comment_date: -1 });
+      const reviews = await cursor.toArray();
+      res.send(reviews);
+
+    })
+
+    app.get('/activeuser-comments/:email', async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email }
+      const user = await commentsCollection.find(query).toArray();
+      res.send(user);
+      console.log(user)
+
+
+
+    })
+
+    app.get('/user-reviews/:userID', async (req, res) => {
+      const userID = req.params.userID;
+      let query = { 'reviewer_info.userID': userID };
+      const cursor = commentsCollection.find(query).sort({ review_date: -1 });
+      const reviews = await cursor.toArray();
+      res.send(reviews);
+
+    })
+
+    app.patch('/comment/:id', async (req, res) => {
+      const id = req.params.id;
+      const updateReviewData = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedReview = {
+        $set: updateReviewData
+
+      }
+      const result = await commentsCollection.updateOne(query, updatedReview);
+      res.send(result);
+    })
+
+    app.delete('/comment/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await commentsCollection.deleteOne(query);
+      res.send(result);
+    })
+
+    app.post('/comment', async (req, res) => {
+      const review = req.body;
+      const result = await commentsCollection.insertOne(review);
+      res.send(result);
     })
     // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
